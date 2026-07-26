@@ -45,6 +45,19 @@
     </collision>
   </link>
   <link
+    name="plam_link" />
+  <joint
+    name="base_to_plam"
+    type="fixed">
+    <origin
+      xyz="-0.04 0.0 -0.03"
+      rpy="0 3.14 -1.57" />
+    <parent
+      link="base_link" />
+    <child
+      link="plam_link" />
+  </joint>
+  <link
     name="Link1">
     <inertial>
       <origin

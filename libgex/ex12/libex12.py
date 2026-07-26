@@ -58,7 +58,9 @@ class Glove:
                     sys.exit(0)
 
         self.name = NAME
-        self.kin = KinEX12()
+        # Joint streaming and visualization do not need PyBullet. Construct
+        # the FK model only if fk() is actually requested.
+        self.kin = None
 
     def connect(self):
         """
@@ -119,6 +121,8 @@ class Glove:
         """
         返回EX12三指的XYZ坐标， 单位m, 依次为大拇指、食指、中指。
         """
+        if self.kin is None:
+            self.kin = KinEX12()
         js = self.getjs()
 
         finger1_xyz = self.kin.fk_finger1(js[0:4])

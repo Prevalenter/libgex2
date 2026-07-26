@@ -70,13 +70,27 @@ def main() -> None:
     model_size = float(np.linalg.norm(urdf.scene.extents))
     view_direction = np.asarray([1.0, -1.0, 0.7])
     view_direction /= np.linalg.norm(view_direction)
-    server.initial_camera.look_at = tuple(float(value) for value in model_center)
-    server.initial_camera.position = tuple(
+    camera_look_at = tuple(float(value) for value in model_center)
+    camera_position = tuple(
         float(value)
         for value in model_center + view_direction * model_size * 1.15
     )
-    server.initial_camera.up = (0.0, 0.0, 1.0)
-    server.initial_camera.fov = np.deg2rad(50.0)
+    camera_up = (0.0, 0.0, 1.0)
+    camera_fov = np.deg2rad(50.0)
+    if hasattr(server, "initial_camera"):
+        server.initial_camera.look_at = camera_look_at
+        server.initial_camera.position = camera_position
+        server.initial_camera.up = camera_up
+        server.initial_camera.fov = camera_fov
+    else:
+        # Viser 0.2.x supports Python 3.8 but configures the initial view per
+        # connected browser rather than through server.initial_camera.
+        @server.on_client_connect
+        def configure_camera(client: viser.ClientHandle) -> None:
+            client.camera.position = camera_position
+            client.camera.look_at = camera_look_at
+            client.camera.up_direction = camera_up
+            client.camera.fov = camera_fov
 
     viser_hand = ViserUrdf(server, urdf, root_node_name="/ex16")
     print(f"Viser is running at http://127.0.0.1:{args.port_viser}")

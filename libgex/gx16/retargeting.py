@@ -20,8 +20,9 @@ class EX16ToGX16Retargeting:
             from dex_retargeting.retargeting_config import RetargetingConfig
         except ImportError as exc:
             raise ImportError(
-                "Retargeting dependencies are missing. Activate gx_hand and install "
-                "dex-retargeting==0.4.6 and yourdfpy."
+                f"Retargeting dependency {exc.name!r} is missing. Install it in "
+                "the active Python environment together with dex-retargeting and "
+                "yourdfpy."
             ) from exc
 
         self.config_path = Path(config_path).resolve()
@@ -71,7 +72,35 @@ class EX16ToGX16Retargeting:
         )
 
         # Start from the GX16 open-hand pose instead of joint-limit midpoints.
-        self.retargeting.set_qpos(np.zeros(len(self.target_joint_names)))
+        self._reset_to_open_hand()
+
+    def _reset_to_open_hand(self):
+        """Reset optimizer history to the zero-angle GX16 pose.
+
+        dex-retargeting 0.4.0 exposes ``last_qpos`` directly, while newer
+        releases provide ``set_qpos``. Support both APIs because this project
+        is used with the Python 3.8-compatible 0.4.0 release as well.
+        """
+        initial_qpos = np.zeros(len(self.target_joint_names), dtype=np.float32)
+        self.retargeting.reset()
+        if hasattr(self.retargeting, "set_qpos"):
+            self.retargeting.set_qpos(initial_qpos)
+        elif hasattr(self.retargeting, "last_qpos"):
+            if self.retargeting.last_qpos.shape != initial_qpos.shape:
+                raise ValueError(
+                    "dex-retargeting optimizer state has shape "
+                    f"{self.retargeting.last_qpos.shape}, expected "
+                    f"{initial_qpos.shape}"
+                )
+            self.retargeting.last_qpos = initial_qpos
+        else:
+            raise AttributeError(
+                "Unsupported dex-retargeting API: expected set_qpos or last_qpos"
+            )
+
+        retarget_filter = getattr(self.retargeting, "filter", None)
+        if retarget_filter is not None:
+            retarget_filter.reset()
 
     def _resolve_path(self, path):
         path = Path(path)
@@ -84,11 +113,20 @@ class EX16ToGX16Retargeting:
 
     @staticmethod
     def _tip_vectors(urdf, origin_links, task_links):
+        """Return target link vectors in the URDF root/world coordinates.
+
+        dex-retargeting's vector optimizer subtracts the world positions of
+        each origin/task pair. Computing ``get_transform(task, origin)`` would
+        instead express the vector in the origin link's rotated coordinates,
+        which is different when a palm frame such as ``plam_link`` is used.
+        """
         zero = {name: np.float64(0.0) for name in JOINT_NAMES}
         urdf.update_cfg(zero)
+        root_link = urdf.base_link
         return np.asarray(
             [
-                urdf.get_transform(task, origin)[:3, 3]
+                urdf.get_transform(task, root_link)[:3, 3]
+                - urdf.get_transform(origin, root_link)[:3, 3]
                 for origin, task in zip(origin_links, task_links)
             ]
         )
@@ -130,6 +168,4 @@ class EX16ToGX16Retargeting:
         return np.asarray(qpos, dtype=np.float64)[self.output_indices]
 
     def reset(self):
-        self.retargeting.reset()
-        self.retargeting.set_qpos(np.zeros(len(self.target_joint_names)))
-
+        self._reset_to_open_hand()

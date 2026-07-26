@@ -1,0 +1,9 @@
+name: libgex2-ex16
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - -r requirements-ex16.txt
+

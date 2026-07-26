@@ -3,3 +3,5 @@
 __pycache__
 *.so
 *.dll
+/poses/ex16/*.json
+/viewer_layouts/*.json

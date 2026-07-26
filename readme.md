@@ -13,6 +13,73 @@ pip install pybullet
 pip install numpy
 ```
 
+### EX16 ZMQ + Viser
+
+The EX16 publisher and browser-based viewer have a separate reproducible
+environment. Create it from the repository root:
+
+```bash
+conda env create -f environment-ex16.yml
+conda activate libgex2-ex16
+```
+
+Alternatively, install the dependencies into an existing Python 3.10
+environment:
+
+```bash
+python -m pip install -r requirements-ex16.txt
+```
+
+Connect the EX16 and start the publisher in one terminal (replace the port if
+needed):
+
+```bash
+python nodes/ex16_zmq_node.py --port /dev/ttyACM0
+```
+
+The publisher opens a Qt status window showing the latest 16 measured joint
+angles. Enter a pose name and click **Save Current Pose** to store it in
+`poses/ex16/`; when the name is empty, a timestamped name is generated. Use
+`--pose-dir PATH` to choose a different pose library.
+
+Then start the viewer in another terminal:
+
+```bash
+python demo_ex16_viser.py
+```
+
+Open <http://127.0.0.1:8080> in a browser. If the device is selected by USB
+serial number instead, use `--serial-number SERIAL_NUMBER`; pass `--left` for
+a left-hand glove. On Linux, the current user must have permission to access
+the serial device (normally through the `dialout` group described below).
+
+For development without a physical EX16, start the Qt fake-state publisher:
+
+```bash
+python nodes/fake_ex16_zmq_node.py
+```
+
+Its 16 sliders publish the same `ex16/state` messages as the real node. The
+pose controls save and load versioned JSON files under `poses/ex16/` by default;
+use `--pose-dir PATH` to select another pose library. The angle range defaults
+to -180 through 180 degrees and can be changed with `--angle-min` and
+`--angle-max`.
+
+The real and fake EX16 publishers both bind to `tcp://127.0.0.1:5567` by
+default, so do not run them simultaneously on that endpoint. Use
+`--state-endpoint` when separate endpoints are needed.
+
+To view EX16 and the retargeted GX16 together, run:
+
+```bash
+python demo_ex16_gx16_viser.py
+```
+
+The scene gizmos and the **Base Coordinate Transforms** sidebar adjust each
+model's XYZ position and RPY rotation. **Save Base Transforms** stores the
+layout in `viewer_layouts/ex16_gx16.json`, which is loaded automatically on the
+next start. Use `--base-transform-file PATH` to choose another layout file.
+
 Add the current user to the `dialout` group so that it can access the serial devices (no need to `chmod 777 /dev/ttyUSB* or /dev/ttyACM*`):
 
 OpenRB150 will be recognized as `/dev/ttyACM*` (usually `/dev/ttyACM0`). U2D2 will be recognized as `/dev/ttyUSB*` (usually `/dev/ttyUSB0`).

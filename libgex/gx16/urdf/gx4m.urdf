@@ -45,6 +45,19 @@
     </collision>
   </link>
   <link
+    name="plam_link" />
+  <joint
+    name="base_to_plam"
+    type="fixed">
+    <origin
+      xyz="0. 0.0 0.0"
+      rpy="1.57 0 1.57" />
+    <parent
+      link="base_link" />
+    <child
+      link="plam_link" />
+  </joint>
+  <link
     name="link1">
     <inertial>
       <origin
@@ -1024,5 +1037,57 @@
       link="link17" />
     <axis
       xyz="0 0 0" />
+  </joint>
+  <link
+    name="link18" />
+  <joint
+    name="joint18"
+    type="fixed">
+    <origin
+      xyz="0.05 0 -0.02"
+      rpy="0 1.57 0" />
+    <parent
+      link="link4" />
+    <child
+      link="link18" />
+  </joint>
+  <link
+    name="link19" />
+  <joint
+    name="joint19"
+    type="fixed">
+    <origin
+      xyz="0.05 0 -0.02"
+      rpy="1.57 -1.57 1.57" />
+    <parent
+      link="link8" />
+    <child
+      link="link19" />
+  </joint>
+  <link
+    name="link20" />
+  <joint
+    name="joint20"
+    type="fixed">
+    <origin
+      xyz="0.05 0 -0.02"
+      rpy="1.57 -1.57 1.57" />
+    <parent
+      link="link12" />
+    <child
+      link="link20" />
+  </joint>
+  <link
+    name="link21" />
+  <joint
+    name="joint21"
+    type="fixed">
+    <origin
+      xyz="0.06 0 -0.02"
+      rpy="1.57 -1.57 1.57" />
+    <parent
+      link="link17" />
+    <child
+      link="link21" />
   </joint>
 </robot>

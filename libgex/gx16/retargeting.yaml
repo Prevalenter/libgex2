@@ -4,10 +4,10 @@ retargeting:
   target_joint_names:
     [joint1, joint2, joint3, joint4, joint5, joint6, joint7, joint8,
      joint9, joint10, joint11, joint12, joint13, joint14, joint15, joint16]
-  target_origin_link_names: [base_link, base_link, base_link, base_link]
-  target_task_link_names: [link4, link8, link12, link17]
+  target_origin_link_names: [plam_link, plam_link, plam_link, plam_link]
+  target_task_link_names: [link18, link19, link20, link21]
   target_link_human_indices: [[0, 0, 0, 0], [1, 2, 3, 4]]
-  scaling_factor: 0.694
+  scaling_factor: 1
   normal_delta: 0.004
   huber_delta: 0.02
   has_joint_limits: true
@@ -15,6 +15,5 @@ retargeting:
 
 source:
   urdf_path: ../ex16/urdf/glove4.urdf
-  base_link_name: base_link
+  base_link_name: plam_link
   finger_tip_link_names: [Link17, Link18, Link19, link20]
-
