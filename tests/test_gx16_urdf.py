@@ -12,6 +12,7 @@ FIXED_TIP_JOINTS = {
     "joint18": ("link4", "link18"),
     "joint19": ("link8", "link19"),
     "joint20": ("link12", "link20"),
+    "joint21": ("link17", "link21"),
 }
 
 

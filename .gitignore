@@ -5,3 +5,8 @@ __pycache__
 *.dll
 /poses/ex16/*.json
 /viewer_layouts/*.json
+
+
+utils/GeoRT/checkpoint
+utils/GeoRT/data
+
