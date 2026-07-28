@@ -109,7 +109,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ImportError as exc:
         raise SystemExit("pyzmq is required: python -m pip install pyzmq") from exc
     # Keep GeoRT's PyTorch dependency out of lightweight parsing/storage tests.
-    from demo_ex16_geort_gx16_viser import restore_projector
+    from demo.demo_ex16_geort_gx16_viser import restore_projector
 
     data_dir = args.data_dir.expanduser().resolve()
     urdf = load_visual_urdf(args.urdf, args.mesh_dir)

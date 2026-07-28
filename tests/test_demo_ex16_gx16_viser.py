@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-import demo_ex16_gx16_viser as viewer
+from demo import demo_ex16_gx16_viser as viewer
 
 
 class BaseTransformStorageTest(unittest.TestCase):

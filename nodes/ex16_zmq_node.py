@@ -40,14 +40,52 @@ from nodes.fake_ex16_zmq_node import (  # noqa: E402
 JOINT_COUNT = 16
 DEFAULT_STATE_ENDPOINT = "tcp://127.0.0.1:5567"
 STATE_TOPIC = "ex16/state"
+CONTROL_STATUS_TOPIC = "geort/control_status"
 POSE_ANGLE_MIN = -180
 POSE_ANGLE_MAX = 180
+
+
+def update_frequency_estimate(
+    previous_time: float | None,
+    smoothed_hz: float | None,
+    current_time: float,
+    alpha: float = 0.2,
+) -> tuple[float | None, float]:
+    if not math.isfinite(current_time):
+        raise ValueError("current_time must be finite")
+    if not math.isfinite(alpha) or not 0 < alpha <= 1:
+        raise ValueError("alpha must be in (0, 1]")
+    if previous_time is None:
+        return smoothed_hz, current_time
+    if not math.isfinite(previous_time):
+        raise ValueError("previous_time must be finite")
+    elapsed = current_time - previous_time
+    if elapsed <= 0:
+        return smoothed_hz, current_time
+    instant_hz = 1.0 / elapsed
+    if smoothed_hz is None:
+        return instant_hz, current_time
+    return alpha * instant_hz + (1.0 - alpha) * smoothed_hz, current_time
+
+
+def decode_control_status_message(
+    message: str,
+    topic: str = CONTROL_STATUS_TOPIC,
+) -> dict[str, object]:
+    prefix = topic + " "
+    if not message.startswith(prefix):
+        raise ValueError(f"message does not start with topic {topic!r}")
+    payload = json.loads(message[len(prefix) :])
+    if not isinstance(payload, dict):
+        raise ValueError("control status payload must be a JSON object")
+    return payload
 
 
 class EX16PublisherWorker(QtCore.QObject):
     """Read the glove and publish states without blocking the Qt UI."""
 
     positions_updated = QtCore.pyqtSignal(object)
+    frequency_updated = QtCore.pyqtSignal(float)
     status_updated = QtCore.pyqtSignal(str)
     failed = QtCore.pyqtSignal(str)
     stopped = QtCore.pyqtSignal()
@@ -82,6 +120,9 @@ class EX16PublisherWorker(QtCore.QObject):
 
             period = 1.0 / self.args.state_hz
             sequence = 0
+            last_publish_time = None
+            publish_hz = None
+            last_frequency_emit = 0.0
             while not self.stop_event.is_set():
                 started = time.monotonic()
                 positions = [float(value) for value in glove.getjs()]
@@ -100,6 +141,12 @@ class EX16PublisherWorker(QtCore.QObject):
                     f"{STATE_TOPIC} {json.dumps(payload, separators=(',', ':'))}"
                 )
                 self.positions_updated.emit(positions)
+                publish_hz, last_publish_time = update_frequency_estimate(
+                    last_publish_time, publish_hz, time.monotonic()
+                )
+                if publish_hz is not None and started - last_frequency_emit >= 0.25:
+                    self.frequency_updated.emit(float(publish_hz))
+                    last_frequency_emit = started
                 sequence += 1
                 self.stop_event.wait(
                     max(0.0, period - (time.monotonic() - started))
@@ -132,6 +179,8 @@ class EX16StateWindow(QtWidgets.QWidget):
         self.pose_dir.mkdir(parents=True, exist_ok=True)
         self.latest_positions: list[float] | None = None
         self.close_after_worker_stops = False
+        self.control_status_socket = None
+        self.last_control_status_time: float | None = None
 
         self.setWindowTitle("EX16 State Publisher")
         self.resize(560, 680)
@@ -143,6 +192,10 @@ class EX16StateWindow(QtWidgets.QWidget):
         self.save_button = QtWidgets.QPushButton("保存当前位置")
         self.save_button.setEnabled(False)
         self.status_label = QtWidgets.QLabel("正在连接 EX16…")
+        self.publish_frequency_label = QtWidgets.QLabel("--")
+        self.control_frequency_label = QtWidgets.QLabel("未订阅")
+        self.gx16_frequency_label = QtWidgets.QLabel("未订阅")
+        self.gx16_command_time_label = QtWidgets.QLabel("未订阅")
         self._build_layout()
         self.save_button.clicked.connect(self.save_current_pose)
 
@@ -151,6 +204,7 @@ class EX16StateWindow(QtWidgets.QWidget):
         self.worker.moveToThread(self.worker_thread)
         self.worker_thread.started.connect(self.worker.run)
         self.worker.positions_updated.connect(self.update_positions)
+        self.worker.frequency_updated.connect(self.update_publish_frequency)
         self.worker.status_updated.connect(self.status_label.setText)
         self.worker.failed.connect(self.handle_worker_error)
         self.worker.stopped.connect(
@@ -158,6 +212,10 @@ class EX16StateWindow(QtWidgets.QWidget):
         )
         self.worker_thread.finished.connect(self.handle_worker_stopped)
         self.worker_thread.start()
+
+        self.control_status_timer = QtCore.QTimer(self)
+        self.control_status_timer.timeout.connect(self.poll_control_status)
+        self._setup_control_status_subscriber()
 
     def _build_layout(self) -> None:
         state_group = QtWidgets.QGroupBox("当前位置（URDF degree）")
@@ -183,7 +241,11 @@ class EX16StateWindow(QtWidgets.QWidget):
         info_layout = QtWidgets.QFormLayout(info_group)
         info_layout.addRow("Endpoint", QtWidgets.QLabel(self.args.state_endpoint))
         info_layout.addRow("Topic", QtWidgets.QLabel(STATE_TOPIC))
-        info_layout.addRow("频率", QtWidgets.QLabel(f"{self.args.state_hz:g} Hz"))
+        info_layout.addRow("目标发布频率", QtWidgets.QLabel(f"{self.args.state_hz:g} Hz"))
+        info_layout.addRow("实际发布频率", self.publish_frequency_label)
+        info_layout.addRow("GeoRT 控制频率", self.control_frequency_label)
+        info_layout.addRow("GX16 控制频率", self.gx16_frequency_label)
+        info_layout.addRow("GX16 命令耗时", self.gx16_command_time_label)
 
         main_layout = QtWidgets.QVBoxLayout(self)
         main_layout.addWidget(info_group)
@@ -192,12 +254,72 @@ class EX16StateWindow(QtWidgets.QWidget):
         main_layout.addStretch(1)
         main_layout.addWidget(self.status_label)
 
+    def _setup_control_status_subscriber(self) -> None:
+        endpoint = self.args.control_status_endpoint
+        if not endpoint:
+            return
+        self.control_status_socket = zmq.Context.instance().socket(zmq.SUB)
+        self.control_status_socket.linger = 0
+        self.control_status_socket.setsockopt(zmq.CONFLATE, 1)
+        self.control_status_socket.setsockopt_string(
+            zmq.SUBSCRIBE, self.args.control_status_topic
+        )
+        self.control_status_socket.connect(endpoint)
+        self.control_frequency_label.setText("等待 GeoRT…")
+        self.gx16_frequency_label.setText("等待 GeoRT…")
+        self.gx16_command_time_label.setText("等待 GeoRT…")
+        self.control_status_timer.start(100)
+
     @QtCore.pyqtSlot(object)
     def update_positions(self, positions: Sequence[float]) -> None:
         self.latest_positions = [float(value) for value in positions]
         for label, value in zip(self.value_labels, self.latest_positions):
             label.setText(f"{value:.2f}°")
         self.save_button.setEnabled(True)
+
+    @QtCore.pyqtSlot(float)
+    def update_publish_frequency(self, frequency_hz: float) -> None:
+        self.publish_frequency_label.setText(f"{frequency_hz:.1f} Hz")
+
+    @QtCore.pyqtSlot()
+    def poll_control_status(self) -> None:
+        if self.control_status_socket is None:
+            return
+        received = False
+        while self.control_status_socket.poll(0):
+            received = True
+            try:
+                payload = decode_control_status_message(
+                    self.control_status_socket.recv_string(),
+                    self.args.control_status_topic,
+                )
+            except (json.JSONDecodeError, ValueError) as exc:
+                self.control_frequency_label.setText(f"状态解析失败：{exc}")
+                continue
+            self.last_control_status_time = time.monotonic()
+            control_hz = payload.get("control_hz")
+            if isinstance(control_hz, (int, float)) and math.isfinite(control_hz):
+                self.control_frequency_label.setText(f"{control_hz:.1f} Hz")
+            else:
+                self.control_frequency_label.setText("预热中")
+            gx16_hz = payload.get("gx16_command_hz")
+            if isinstance(gx16_hz, (int, float)) and math.isfinite(gx16_hz):
+                self.gx16_frequency_label.setText(f"{gx16_hz:.1f} Hz")
+            else:
+                self.gx16_frequency_label.setText("预热中")
+            gx16_ms = payload.get("gx16_command_ms")
+            if isinstance(gx16_ms, (int, float)) and math.isfinite(gx16_ms):
+                self.gx16_command_time_label.setText(f"{gx16_ms:.1f} ms")
+            else:
+                self.gx16_command_time_label.setText("预热中")
+        if (
+            not received
+            and self.last_control_status_time is not None
+            and time.monotonic() - self.last_control_status_time > 2.0
+        ):
+            self.control_frequency_label.setText("GeoRT 超时")
+            self.gx16_frequency_label.setText("GeoRT 超时")
+            self.gx16_command_time_label.setText("GeoRT 超时")
 
     def save_current_pose(self) -> None:
         if self.latest_positions is None:
@@ -257,6 +379,10 @@ class EX16StateWindow(QtWidgets.QWidget):
             self.worker.request_stop()
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt API name
+        self.control_status_timer.stop()
+        if self.control_status_socket is not None:
+            self.control_status_socket.close()
+            self.control_status_socket = None
         if self.worker_thread.isRunning():
             self.close_after_worker_stops = True
             self.worker.request_stop()
@@ -274,10 +400,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--left", action="store_true", help="Use left-hand directions")
     parser.add_argument("--state-endpoint", default=DEFAULT_STATE_ENDPOINT)
     parser.add_argument("--state-hz", type=float, default=100.0)
+    parser.add_argument(
+        "--control-status-endpoint",
+        default="",
+        help="Optional ZMQ SUB endpoint for GeoRT live control status.",
+    )
+    parser.add_argument("--control-status-topic", default=CONTROL_STATUS_TOPIC)
     parser.add_argument("--pose-dir", type=Path, default=DEFAULT_POSE_DIR)
     args = parser.parse_args(argv)
     if not math.isfinite(args.state_hz) or args.state_hz <= 0:
         parser.error("--state-hz must be a finite number greater than zero")
+    if args.control_status_endpoint and not args.control_status_topic:
+        parser.error("--control-status-topic must not be empty")
     return args
 
 
@@ -287,6 +421,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     window = EX16StateWindow(args)
     app.aboutToQuit.connect(window.request_worker_stop)
     signal.signal(signal.SIGINT, lambda *_: window.close())
+    signal.signal(signal.SIGTERM, lambda *_: window.close())
     signal_timer = QtCore.QTimer()
     signal_timer.start(200)
     signal_timer.timeout.connect(lambda: None)

@@ -1,7 +1,7 @@
 BASIC:
   PROTOCOL_VERSION: 2
   BAUDRATE: 1000000 # 1M bps
-  SERIAL_NUMBER: 'FTAKRP3AA'
+  SERIAL_NUMBER: 'FTAKRP3A'
 
 HAND:
   NAME: 'GX16'
@@ -20,5 +20,4 @@ ExtendedPos:
     Profile_vel: 800 # unit 0.229 rev/min
     Profile_acc: 200 # unit 214.58 rev/min2
  
-
 

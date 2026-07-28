@@ -1,6 +1,7 @@
 import argparse
 import json
 import math
+import signal
 import sys
 import threading
 import time
@@ -17,7 +18,7 @@ from libgex2.libgex.gx16.libgx16 import JOINT_MOTOR_DIRECTIONS  # noqa: E402
 
 
 JOINT_COUNT = 16
-DEFAULT_SERIAL_NUMBER = "FTAKRP3AA"
+DEFAULT_SERIAL_NUMBER = "FTAKRP3A"
 DEFAULT_CMD_ENDPOINT = "tcp://127.0.0.1:5556"
 DEFAULT_STATE_ENDPOINT = "tcp://127.0.0.1:5557"
 STATE_TOPIC = "gx16/state"
@@ -107,6 +108,24 @@ def _motor_to_urdf(motor_deg):
     return [angle * direction for angle, direction in zip(motor_deg, JOINT_DIRECTIONS)]
 
 
+def update_frequency_estimate(previous_time, smoothed_hz, current_time, alpha=0.2):
+    if not math.isfinite(current_time):
+        raise ValueError("current_time must be finite")
+    if not math.isfinite(alpha) or not 0 < alpha <= 1:
+        raise ValueError("alpha must be in (0, 1]")
+    if previous_time is None:
+        return smoothed_hz, current_time
+    if not math.isfinite(previous_time):
+        raise ValueError("previous_time must be finite")
+    elapsed = current_time - previous_time
+    if elapsed <= 0:
+        return smoothed_hz, current_time
+    instant_hz = 1.0 / elapsed
+    if smoothed_hz is None:
+        return instant_hz, current_time
+    return alpha * instant_hz + (1.0 - alpha) * smoothed_hz, current_time
+
+
 class GX16ZmqNode:
     def __init__(self, args):
         self.args = args
@@ -116,6 +135,10 @@ class GX16ZmqNode:
         self.last_command = None
         self.last_error = None
         self.last_motor_deg = [0.0] * JOINT_COUNT
+        self.command_hz = None
+        self.last_command_time = None
+        self.last_command_duration_ms = None
+        self.command_count = 0
         self.hardware_lock = threading.Lock()
         self.state_lock = threading.Lock()
 
@@ -167,6 +190,7 @@ class GX16ZmqNode:
         return values
 
     def _send_setjs(self, motor_deg):
+        started = time.perf_counter()
         if self.args.dry_run:
             print(
                 "Dry-run setjs motor_deg: "
@@ -178,10 +202,13 @@ class GX16ZmqNode:
                 raise RuntimeError("GX16 is not connected")
             with self.hardware_lock:
                 self.hand.setjs(motor_deg)
+        duration_ms = (time.perf_counter() - started) * 1000.0
+        self.record_command(duration_ms, time.monotonic())
         with self.state_lock:
             self.last_motor_deg = list(motor_deg)
 
     def _send_setj(self, joint, motor_deg):
+        started = time.perf_counter()
         if self.args.dry_run:
             print(f"Dry-run setj joint={joint} motor_deg={motor_deg:.3f}", flush=True)
         else:
@@ -189,8 +216,28 @@ class GX16ZmqNode:
                 raise RuntimeError("GX16 is not connected")
             with self.hardware_lock:
                 self.hand.setj(joint, motor_deg)
+        duration_ms = (time.perf_counter() - started) * 1000.0
+        self.record_command(duration_ms, time.monotonic())
         with self.state_lock:
             self.last_motor_deg[joint - 1] = motor_deg
+
+    def record_command(self, duration_ms, completed_time):
+        with self.state_lock:
+            self.command_hz, self.last_command_time = update_frequency_estimate(
+                self.last_command_time,
+                self.command_hz,
+                completed_time,
+            )
+            self.last_command_duration_ms = float(duration_ms)
+            self.command_count += 1
+
+    def command_stats_payload(self):
+        with self.state_lock:
+            return {
+                "command_hz": self.command_hz,
+                "last_command_duration_ms": self.last_command_duration_ms,
+                "command_count": self.command_count,
+            }
 
     def set_last_error(self, error):
         with self.state_lock:
@@ -209,6 +256,9 @@ class GX16ZmqNode:
             motor_deg = list(self.last_motor_deg)
             last_command = self.last_command
             last_error = self.last_error
+            command_hz = self.command_hz
+            last_command_duration_ms = self.last_command_duration_ms
+            command_count = self.command_count
         if read_position and (self.args.dry_run or self.connected):
             try:
                 motor_deg = self._read_motor_deg()
@@ -223,6 +273,9 @@ class GX16ZmqNode:
             "port": self.port,
             "last_command": last_command,
             "last_error": last_error,
+            "command_hz": command_hz,
+            "last_command_duration_ms": last_command_duration_ms,
+            "command_count": command_count,
             "motor_deg": motor_deg,
             "urdf_deg": _motor_to_urdf(motor_deg),
             "timestamp": _now(),
@@ -276,6 +329,7 @@ class GX16ZmqNode:
                         "motor_deg": list(motor_deg),
                         "urdf_deg": _motor_to_urdf(motor_deg),
                         "timestamp": _now(),
+                        **self.command_stats_payload(),
                     }
                 )
 
@@ -296,6 +350,7 @@ class GX16ZmqNode:
                         "motor_deg": list(self.last_motor_deg),
                         "urdf_deg": _motor_to_urdf(self.last_motor_deg),
                         "timestamp": _now(),
+                        **self.command_stats_payload(),
                     }
                 )
 
@@ -390,13 +445,17 @@ def main():
     pub_socket.linger = 0
 
     try:
+        node = GX16ZmqNode(args)
+        node.connect_hand()
+        signal.signal(signal.SIGTERM, lambda *_: node.set_running(False))
+
+        # Bind only after all 16 motors finish initialization. Otherwise a
+        # TCP-only readiness check can connect while the REP loop is still
+        # blocked in connect_hand(), causing its first request to time out.
         rep_socket.bind(args.cmd_endpoint)
         pub_socket.bind(args.state_endpoint)
         print(f"Command REP endpoint: {args.cmd_endpoint}", flush=True)
         print(f"State PUB endpoint: {args.state_endpoint} topic={STATE_TOPIC}", flush=True)
-
-        node = GX16ZmqNode(args)
-        node.connect_hand()
 
         stop_event = threading.Event()
         state_thread = threading.Thread(
@@ -422,7 +481,7 @@ def main():
                 rep_socket.send_json(response)
 
     except KeyboardInterrupt:
-        print("Interrupted. Stopping GX16 ZMQ node without torque off.", flush=True)
+        print("Interrupted. Stopping GX16 ZMQ node...", flush=True)
     finally:
         if "node" in locals():
             node.set_running(False)
@@ -430,6 +489,17 @@ def main():
             stop_event.set()
         if "state_thread" in locals():
             state_thread.join(timeout=1.0)
+        if (
+            "node" in locals()
+            and node.hand is not None
+            and node.connected
+        ):
+            try:
+                with node.hardware_lock:
+                    node.hand.off()
+                print("GX16 torque disabled.", flush=True)
+            except Exception as exc:
+                print(f"Warning: failed to disable GX16 torque: {exc}", file=sys.stderr)
         rep_socket.close()
         pub_socket.close()
 

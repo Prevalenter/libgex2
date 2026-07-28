@@ -10,7 +10,7 @@ def search_ports():
 
     if len(ports) == 0:
         print('No COM ports found!')
-        return None
+        return {}
     ports_info = {}
     
     for p in ports:

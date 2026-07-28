@@ -5,8 +5,8 @@ from pathlib import Path
 
 import numpy as np
 
-from demo_ex16_recording_viser import load_recording, qpos_for_urdf, resolve_recording
-from demo_ex16_viser import load_urdf
+from demo.demo_ex16_recording_viser import load_recording, qpos_for_urdf, resolve_recording
+from demo.demo_ex16_viser import load_urdf
 
 
 class RecordingLoadTest(unittest.TestCase):

@@ -45,7 +45,7 @@ angles. Enter a pose name and click **Save Current Pose** to store it in
 Then start the viewer in another terminal:
 
 ```bash
-python demo_ex16_viser.py
+python demo/demo_ex16_viser.py
 ```
 
 Open <http://127.0.0.1:8080> in a browser. If the device is selected by USB
@@ -72,13 +72,33 @@ default, so do not run them simultaneously on that endpoint. Use
 To view EX16 and the retargeted GX16 together, run:
 
 ```bash
-python demo_ex16_gx16_viser.py
+python demo/demo_ex16_gx16_viser.py
 ```
 
 The scene gizmos and the **Base Coordinate Transforms** sidebar adjust each
 model's XYZ position and RPY rotation. **Save Base Transforms** stores the
 layout in `viewer_layouts/ex16_gx16.json`, which is loaded automatically on the
 next start. Use `--base-transform-file PATH` to choose another layout file.
+
+### EX16 → GeoRT → real GX16 experiment
+
+The supervised experiment launcher owns the EX16 publisher, the GX16 hardware
+node, and the GeoRT/Viser controller as one process group:
+
+```bash
+experiment/run_ex16_geort_gx16.sh
+```
+
+This enables real GX16 output with conservative current, PWM, URDF joint limits,
+and EMA smoothing on the commanded joint angles. Press Ctrl+C or close one child
+window to stop the complete experiment; GX16 torque is disabled before all child
+processes are reaped. The EX16 Qt window displays both the measured EX16 publish
+rate and the live GeoRT control rate. Test the same pipeline without hardware
+first with:
+
+```bash
+experiment/run_ex16_geort_gx16.sh --dry-run
+```
 
 Add the current user to the `dialout` group so that it can access the serial devices (no need to `chmod 777 /dev/ttyUSB* or /dev/ttyACM*`):
 

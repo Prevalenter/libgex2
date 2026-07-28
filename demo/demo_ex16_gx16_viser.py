@@ -18,7 +18,7 @@ import yourdfpy
 from viser.extras import ViserUrdf
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 EX16_URDF_PATH = PROJECT_ROOT / "libgex" / "ex16" / "urdf" / "glove4.urdf"
 EX16_MESH_DIR = PROJECT_ROOT / "libgex" / "ex16" / "meshes"
 GX16_URDF_PATH = PROJECT_ROOT / "libgex" / "gx16" / "urdf" / "gx4m.urdf"

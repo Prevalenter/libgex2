@@ -1,17 +1,24 @@
 import argparse
+import errno
 import os
+import platform
 import sys
+from pathlib import Path
 
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+PACKAGE_PARENT = Path(__file__).resolve().parents[2]
+if str(PACKAGE_PARENT) not in sys.path:
+    sys.path.insert(0, str(PACKAGE_PARENT))
 from libgex2 import Hand16
 from libgex2.libgex.gx16.libgx16 import JOINT_MOTOR_DIRECTIONS
+from serial.tools import list_ports
 
 
 JOINT_COUNT = 16
 ANGLE_MIN = -90
 ANGLE_MAX = 90
-DEFAULT_SERIAL_NUMBER = "FTAKRP3AA"
+DEFAULT_SERIAL_NUMBER = "FTAKRP3A"
+FTDI_VENDOR_ID = 0x0403
 JOINT_DIRECTIONS = [int(direction) for direction in JOINT_MOTOR_DIRECTIONS]
 
 if len(JOINT_DIRECTIONS) != JOINT_COUNT:
@@ -22,6 +29,131 @@ if len(JOINT_DIRECTIONS) != JOINT_COUNT:
 
 if any(direction not in (-1, 1) for direction in JOINT_DIRECTIONS):
     raise ValueError("JOINT_MOTOR_DIRECTIONS values must be 1 or -1")
+
+
+def host_system():
+    name = platform.system() or sys.platform
+    return name
+
+
+def port_placeholder(system=None):
+    system = system or host_system()
+    if system == "Windows":
+        return "COM6"
+    if system == "Darwin":
+        return "/dev/cu.usbserial-*"
+    return "/dev/ttyUSB0 or /dev/ttyACM0"
+
+
+def serial_devices():
+    """Return serial metadata without collapsing missing/duplicate serial IDs."""
+    devices = []
+    for info in list_ports.comports():
+        devices.append(
+            {
+                "device": str(info.device),
+                "serial_number": info.serial_number,
+                "description": info.description or "",
+                "manufacturer": info.manufacturer or "",
+                "vid": info.vid,
+                "pid": info.pid,
+            }
+        )
+    return devices
+
+
+def _platform_candidates(devices, system):
+    if system == "Windows":
+        return [item for item in devices if item["device"].upper().startswith("COM")]
+    if system == "Darwin":
+        return [
+            item
+            for item in devices
+            if item["device"].startswith(("/dev/cu.usb", "/dev/tty.usb"))
+        ]
+    return [
+        item
+        for item in devices
+        if item["device"].startswith(("/dev/ttyUSB", "/dev/ttyACM"))
+    ]
+
+
+def choose_serial_device(devices, requested_serial=None, system=None):
+    """Choose an unambiguous GX16 adapter and explain the selection."""
+    system = system or host_system()
+    if requested_serial:
+        exact = [
+            item for item in devices if item["serial_number"] == requested_serial
+        ]
+        if len(exact) == 1:
+            return exact[0], f"matched USB serial {requested_serial}"
+
+    candidates = _platform_candidates(devices, system)
+    ftdi = [item for item in candidates if item["vid"] == FTDI_VENDOR_ID]
+    if len(ftdi) == 1:
+        item = ftdi[0]
+        serial = item["serial_number"] or "unknown"
+        return item, f"unique FTDI adapter (USB serial {serial})"
+    if len(candidates) == 1:
+        item = candidates[0]
+        serial = item["serial_number"] or "unknown"
+        return item, f"only compatible serial adapter (USB serial {serial})"
+    return None, "no unique compatible adapter"
+
+
+def device_summary(device):
+    serial = device["serial_number"] or "no serial"
+    description = device["description"] or device["manufacturer"] or "serial device"
+    return f"{device['device']} — {description} — {serial}"
+
+
+def linux_port_problem(port):
+    if host_system() != "Linux" or not port.startswith("/dev/"):
+        return None
+    path = Path(port)
+    if not path.exists():
+        return f"Serial device does not exist: {port}"
+    if not os.access(port, os.R_OK | os.W_OK):
+        return (
+            f"No read/write permission for {port}. Add the user to dialout with:\n"
+            "sudo usermod -aG dialout $USER\n"
+            "Then log out and log back in."
+        )
+    return None
+
+
+def connection_error_message(error, port, devices):
+    details = str(error).strip() or repr(error)
+    error_number = getattr(error, "errno", None)
+    if error_number == errno.EBUSY or "busy" in details.lower():
+        details += f"\n{port} is busy. Check it with: fuser -v {port}"
+    permission_problem = linux_port_problem(port)
+    if permission_problem:
+        details += f"\n{permission_problem}"
+    if devices:
+        details += "\nDetected ports:\n" + "\n".join(
+            f"  {device_summary(item)}" for item in devices
+        )
+    else:
+        details += (
+            "\nNo serial adapters were detected. Check USB power/cable and run:\n"
+            "python -m serial.tools.list_ports -v"
+        )
+    return details
+
+
+def qt_environment_problem():
+    if host_system() != "Linux":
+        return None
+    if os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"):
+        return None
+    if os.environ.get("QT_QPA_PLATFORM") == "offscreen":
+        return None
+    return (
+        "No Linux graphical session was detected (DISPLAY and WAYLAND_DISPLAY "
+        "are empty). Run this demo from the Ubuntu desktop session, or verify "
+        "SSH X11 forwarding with: echo $DISPLAY"
+    )
 
 
 def urdf_to_motor_angle(joint_index, angle):
@@ -150,6 +282,8 @@ class GX16ControlWindow(QtWidgets.QWidget):
         self.pending_commands = {}
         self.is_connected = False
         self.is_updating_controls = False
+        self.detected_devices = []
+        self.selection_reason = ""
 
         self.command_timer = QtCore.QTimer(self)
         self.command_timer.setInterval(80)
@@ -158,10 +292,18 @@ class GX16ControlWindow(QtWidgets.QWidget):
         self.setWindowTitle(f"GX16 Joint Control ({QT_API})")
         self.resize(720, 760)
 
-        self.port_edit = QtWidgets.QLineEdit(args.port or "")
-        self.port_edit.setPlaceholderText("COM6")
+        self.system_label = QtWidgets.QLabel(
+            f"{host_system()} · Qt {QT_API}"
+        )
+        self.port_combo = QtWidgets.QComboBox()
+        self.port_combo.setEditable(True)
+        self.port_combo.lineEdit().setPlaceholderText(port_placeholder())
+        if args.port:
+            self.port_combo.addItem(args.port)
+            self.port_combo.setCurrentText(args.port)
         self.serial_edit = QtWidgets.QLineEdit(args.serial_number or "")
         self.serial_edit.setPlaceholderText(DEFAULT_SERIAL_NUMBER)
+        self.refresh_button = QtWidgets.QPushButton("Refresh")
 
         self.connect_button = QtWidgets.QPushButton("Connect")
         self.home_button = QtWidgets.QPushButton("Home")
@@ -180,15 +322,18 @@ class GX16ControlWindow(QtWidgets.QWidget):
         self._build_layout()
         self._connect_signals()
         self._set_connected_state(False)
+        self.refresh_serial_ports()
 
     def _build_layout(self):
         device_group = QtWidgets.QGroupBox("Device")
         device_layout = QtWidgets.QGridLayout(device_group)
-        device_layout.addWidget(QtWidgets.QLabel("Port"), 0, 0)
-        device_layout.addWidget(self.port_edit, 0, 1)
-        device_layout.addWidget(QtWidgets.QLabel("Serial"), 0, 2)
-        device_layout.addWidget(self.serial_edit, 0, 3)
-        device_layout.addWidget(self.connect_button, 0, 4)
+        device_layout.addWidget(self.system_label, 0, 0, 1, 5)
+        device_layout.addWidget(QtWidgets.QLabel("Port"), 1, 0)
+        device_layout.addWidget(self.port_combo, 1, 1)
+        device_layout.addWidget(self.refresh_button, 1, 2)
+        device_layout.addWidget(QtWidgets.QLabel("USB Serial"), 2, 0)
+        device_layout.addWidget(self.serial_edit, 2, 1, 1, 2)
+        device_layout.addWidget(self.connect_button, 1, 3, 2, 2)
 
         button_layout = QtWidgets.QHBoxLayout()
         button_layout.addWidget(self.home_button)
@@ -216,6 +361,7 @@ class GX16ControlWindow(QtWidgets.QWidget):
 
     def _connect_signals(self):
         self.connect_button.clicked.connect(self.connect_hand)
+        self.refresh_button.clicked.connect(self.refresh_serial_ports)
         self.home_button.clicked.connect(self.home)
         self.read_button.clicked.connect(self.read_current_positions)
         self.torque_on_button.clicked.connect(self.torque_on)
@@ -230,21 +376,84 @@ class GX16ControlWindow(QtWidgets.QWidget):
         self.torque_on_button.setEnabled(connected)
         self.torque_off_button.setEnabled(connected)
         self.connect_button.setEnabled(not connected)
-        self.port_edit.setEnabled(not connected)
+        self.port_combo.setEnabled(not connected)
+        self.refresh_button.setEnabled(not connected)
         self.serial_edit.setEnabled(not connected)
 
+    def refresh_serial_ports(self):
+        requested_port = self.port_combo.currentText().strip() or self.args.port
+        try:
+            devices = serial_devices()
+        except Exception as exc:
+            self.detected_devices = []
+            self.status_label.setText(f"Serial scan failed: {exc}")
+            return
+
+        self.detected_devices = devices
+        self.port_combo.blockSignals(True)
+        self.port_combo.clear()
+        for device in devices:
+            self.port_combo.addItem(device["device"], device)
+
+        reason = ""
+        selected_port = requested_port
+        if not selected_port:
+            selected, reason = choose_serial_device(
+                devices, self.serial_edit.text().strip() or None
+            )
+            if selected is not None:
+                selected_port = selected["device"]
+                if selected["serial_number"]:
+                    self.serial_edit.setText(selected["serial_number"])
+        if selected_port:
+            self.port_combo.setCurrentText(selected_port)
+        self.port_combo.blockSignals(False)
+        self.selection_reason = reason
+
+        if selected_port:
+            suffix = f" ({reason})" if reason else ""
+            self.status_label.setText(f"Detected {selected_port}{suffix}")
+        elif devices:
+            self.status_label.setText(
+                f"Detected {len(devices)} ports; select the GX16 adapter manually"
+            )
+        else:
+            self.status_label.setText(
+                "No serial adapters detected; check USB power and cable"
+            )
+
     def connect_hand(self):
-        port = self.port_edit.text().strip() or None
+        port = self.port_combo.currentText().strip() or None
         serial_number = self.serial_edit.text().strip() or None
 
-        if not port and not serial_number:
-            serial_number = DEFAULT_SERIAL_NUMBER
-            self.serial_edit.setText(serial_number)
+        if not port:
+            self.refresh_serial_ports()
+            port = self.port_combo.currentText().strip() or None
+        if not port:
+            message = connection_error_message(
+                RuntimeError(
+                    f"Could not uniquely select the GX16 adapter for serial "
+                    f"{serial_number or '(not set)'}"
+                ),
+                port_placeholder(),
+                self.detected_devices,
+            )
+            self.status_label.setText("Connect failed: no unique serial port")
+            QtWidgets.QMessageBox.critical(self, "GX16", message)
+            return
+
+        permission_problem = linux_port_problem(port)
+        if permission_problem:
+            self.status_label.setText(f"Connect failed: no permission for {port}")
+            QtWidgets.QMessageBox.critical(self, "GX16", permission_problem)
+            return
 
         self.status_label.setText("Connecting...")
         QtWidgets.QApplication.setOverrideCursor(QT_WAIT_CURSOR)
         try:
-            self.hand = Hand16(port=port, serial_number=serial_number)
+            # Resolve to an explicit platform port before entering Hand16. This
+            # avoids OS-dependent serial-number formatting differences.
+            self.hand = Hand16(port=port, serial_number=None)
             self.hand.connect(
                 curr_limit=self.args.curr_limit,
                 goal_current=self.args.goal_current,
@@ -253,11 +462,17 @@ class GX16ControlWindow(QtWidgets.QWidget):
         except (Exception, SystemExit) as exc:
             self.hand = None
             self._set_connected_state(False)
-            self.status_label.setText(f"Connect failed: {exc}")
-            QtWidgets.QMessageBox.critical(self, "GX16", f"Connect failed:\n{exc}")
+            details = connection_error_message(exc, port, self.detected_devices)
+            self.status_label.setText(f"Connect failed: {details.splitlines()[0]}")
+            QtWidgets.QMessageBox.critical(self, "GX16", f"Connect failed:\n{details}")
         else:
             self._set_connected_state(True)
-            self.status_label.setText(f"Connected: {self.hand.port}")
+            selected = next(
+                (item for item in self.detected_devices if item["device"] == port),
+                None,
+            )
+            suffix = f" · {selected['serial_number']}" if selected else ""
+            self.status_label.setText(f"Connected: {self.hand.port}{suffix}")
         finally:
             QtWidgets.QApplication.restoreOverrideCursor()
 
@@ -352,7 +567,19 @@ class GX16ControlWindow(QtWidgets.QWidget):
             self.is_updating_controls = False
 
     def closeEvent(self, event):
+        self.command_timer.stop()
         self.flush_pending_commands()
+        if self.hand is not None:
+            try:
+                self.hand.off()
+            except Exception:
+                pass
+            port_handler = getattr(self.hand, "portHandler", None)
+            if port_handler is not None:
+                try:
+                    port_handler.closePort()
+                except Exception:
+                    pass
         event.accept()
 
 
@@ -367,12 +594,37 @@ def parse_args():
     parser.add_argument("--curr-limit", type=int, default=1000)
     parser.add_argument("--goal-current", type=int, default=600)
     parser.add_argument("--goal-pwm", type=int, default=200)
+    parser.add_argument(
+        "--list-ports",
+        action="store_true",
+        help="Print detected serial adapters and exit without opening Qt.",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    app = QtWidgets.QApplication(sys.argv)
+    if args.list_ports:
+        devices = serial_devices()
+        print(f"System: {host_system()}")
+        if not devices:
+            print("No serial adapters detected.")
+            return 1
+        selected, reason = choose_serial_device(devices, args.serial_number)
+        for device in devices:
+            marker = "*" if selected is device else " "
+            print(f"{marker} {device_summary(device)}")
+        if selected is not None:
+            print(f"Auto-selected: {selected['device']} ({reason})")
+        else:
+            print("Auto-selection is ambiguous; pass --port explicitly.")
+        return 0
+
+    environment_problem = qt_environment_problem()
+    if environment_problem:
+        raise RuntimeError(environment_problem)
+    # Do not pass application-specific options such as --port to Qt itself.
+    app = QtWidgets.QApplication([sys.argv[0]])
     window = GX16ControlWindow(args)
     window.show()
     if hasattr(app, "exec"):
@@ -383,6 +635,6 @@ def main():
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except ImportError as exc:
+    except (ImportError, RuntimeError) as exc:
         print(exc)
         raise SystemExit(1)

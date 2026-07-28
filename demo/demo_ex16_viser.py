@@ -12,7 +12,7 @@ import viser
 import yourdfpy
 from viser.extras import ViserUrdf
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 URDF_PATH = PROJECT_ROOT / "libgex" / "ex16" / "urdf" / "glove4.urdf"
 MESH_DIR = PROJECT_ROOT / "libgex" / "ex16" / "meshes"
 DEFAULT_STATE_ENDPOINT = "tcp://127.0.0.1:5567"

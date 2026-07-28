@@ -1,6 +1,9 @@
 import sys
+from pathlib import Path
 
-sys.path.append("../")  # replace with the actual path to libgex2
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 import time
 import pybullet as p
@@ -18,7 +21,7 @@ p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
 # 加载你的机械手 URDF（修改为你的文件路径）
 # 假设 URDF 放在当前目录，且 joint 顺序和 glove 对应
 hand = p.loadURDF(
-    "libgex/ex12/urdf/ex12.urdf",
+    str(PROJECT_ROOT / "libgex" / "ex12" / "urdf" / "ex12.urdf"),
     basePosition=[0, 0, 0.2],
     baseOrientation=p.getQuaternionFromEuler([np.pi / 2, 0, np.pi / 2]),
     useFixedBase=True,

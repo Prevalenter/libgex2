@@ -62,6 +62,11 @@ class EX16StateWindowTest(unittest.TestCase):
                     self.assertTrue(window.save_button.isEnabled())
                     self.assertEqual(window.value_labels[0].text(), "0.49°")
                     self.assertEqual(window.value_labels[15].text(), "15.49°")
+                    deadline = time.monotonic() + 1.0
+                    while window.publish_frequency_label.text() == "--" and time.monotonic() < deadline:
+                        QtWidgets.QApplication.processEvents()
+                        time.sleep(0.005)
+                    self.assertIn("Hz", window.publish_frequency_label.text())
 
                     window.pose_name_edit.setText("measured_pose")
                     window.save_current_pose()
@@ -72,6 +77,32 @@ class EX16StateWindowTest(unittest.TestCase):
                     window.request_worker_stop()
                     self.assertTrue(window.worker_thread.wait(2000))
                     window.close()
+
+
+class ControlStatusTest(unittest.TestCase):
+    def test_frequency_estimate_uses_ewma(self):
+        hz, last_time = ex16_zmq_node.update_frequency_estimate(None, None, 10.0)
+        self.assertIsNone(hz)
+        self.assertEqual(last_time, 10.0)
+        hz, last_time = ex16_zmq_node.update_frequency_estimate(last_time, hz, 10.1)
+        self.assertAlmostEqual(hz, 10.0)
+        hz, last_time = ex16_zmq_node.update_frequency_estimate(
+            last_time, hz, 10.3, alpha=0.5
+        )
+        self.assertAlmostEqual(hz, 7.5)
+        self.assertEqual(last_time, 10.3)
+
+    def test_decodes_geort_control_status_message(self):
+        message = (
+            f"{ex16_zmq_node.CONTROL_STATUS_TOPIC} "
+            '{"sequence":7,"control_hz":9.8,'
+            '"gx16_command_hz":9.6,"gx16_command_ms":103.0}'
+        )
+        payload = ex16_zmq_node.decode_control_status_message(message)
+        self.assertEqual(payload["sequence"], 7)
+        self.assertEqual(payload["control_hz"], 9.8)
+        self.assertEqual(payload["gx16_command_hz"], 9.6)
+        self.assertEqual(payload["gx16_command_ms"], 103.0)
 
 
 if __name__ == "__main__":
