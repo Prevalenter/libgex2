@@ -1,0 +1,16 @@
+{
+  "fingers": [
+    {
+      "finger": "thumb",
+      "serial": "5AA9026150"
+    },
+    {
+      "finger": "index",
+      "serial": "5AA9025877"
+    },
+    {
+      "finger": "middle",
+      "serial": "5AA9025887"
+    }
+  ]
+}

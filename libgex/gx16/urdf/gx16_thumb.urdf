@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GX16 thumb extracted from gx4m.urdf. -->
+<robot name="gx16_thumb">
+  <!-- Empty root keeps joint1's original mounting transform without rendering the palm. -->
+  <link name="base_link" />
+
+  <link name="link1">
+    <inertial>
+      <origin xyz="0.0066997555855992 -0.00029707734467572 0.0157715034835529" rpy="0 0 0" />
+      <mass value="0.0221845886807471" />
+      <inertia
+        ixx="1.75893076006865E-06"
+        ixy="-9.18341864091065E-09"
+        ixz="-6.4644354183328E-08"
+        iyy="2.65182698275462E-06"
+        iyz="1.75974720130724E-08"
+        izz="3.2896829484082E-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://gx4m/meshes/link1.STL" />
+      </geometry>
+      <material name="gray">
+        <color rgba="0.4 0.4 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://gx4m/meshes/link1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="joint1" type="revolute">
+    <origin xyz="0.01525 0.040316 0.0202" rpy="1.5708 0 1.5708" />
+    <parent link="base_link" />
+    <child link="link1" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.6" upper="1.57" effort="6" velocity="6" />
+  </joint>
+
+  <link name="link2">
+    <inertial>
+      <origin xyz="0.0179115845068282 0.00156014337581842 0.017229049195138" rpy="0 0 0" />
+      <mass value="0.00726969492362233" />
+      <inertia
+        ixx="1.95118399965334E-06"
+        ixy="5.56347572713684E-09"
+        ixz="3.61427722386111E-08"
+        iyy="1.8625109956516E-06"
+        iyz="-1.38118146214014E-08"
+        izz="1.64196249089385E-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://gx4m/meshes/link2.STL" />
+      </geometry>
+      <material name="gray">
+        <color rgba="0.4 0.4 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://gx4m/meshes/link2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="joint2" type="revolute">
+    <origin xyz="0.015 0.0175 0.02" rpy="1.5708 0 0" />
+    <parent link="link1" />
+    <child link="link2" />
+    <axis xyz="0 0 1" />
+    <limit lower="0" upper="2.1" effort="6" velocity="6" />
+  </joint>
+
+  <link name="link3">
+    <inertial>
+      <origin xyz="0.0245 -3.81639164714898E-17 -0.0170100523350374" rpy="0 0 0" />
+      <mass value="0.0318397860116349" />
+      <inertia
+        ixx="2.63362247826917E-06"
+        ixy="-1.41560414666517E-21"
+        ixz="-2.81241408268029E-21"
+        iyy="4.761229595298E-06"
+        iyz="-1.41473845417061E-21"
+        izz="4.05277731724929E-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://gx4m/meshes/link3.STL" />
+      </geometry>
+      <material name="gray">
+        <color rgba="0.4 0.4 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://gx4m/meshes/link3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="joint3" type="revolute">
+    <origin xyz="0.036 0.0165 0.0175" rpy="-1.5708 0 0" />
+    <parent link="link2" />
+    <child link="link3" />
+    <axis xyz="0 0 1" />
+    <limit lower="0" upper="1.57" effort="6" velocity="6" />
+  </joint>
+
+  <link name="link4">
+    <inertial>
+      <origin xyz="0.0331932699918128 0.00120000921448157 -0.0173091510596473" rpy="0 0 0" />
+      <mass value="0.016387902192676" />
+      <inertia
+        ixx="1.67397373857767E-06"
+        ixy="8.08318528720868E-08"
+        ixz="-2.79692097132294E-09"
+        iyy="2.6481586764993E-06"
+        iyz="-1.90394065537757E-10"
+        izz="1.49181880126737E-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://gx4m/meshes/link4.STL" />
+      </geometry>
+      <material name="red">
+        <color rgba="0.5 0.2 0.2 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://gx4m/meshes/link4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="joint4" type="revolute">
+    <origin xyz="0.049 0 0.0006" rpy="0 0 0" />
+    <parent link="link3" />
+    <child link="link4" />
+    <axis xyz="0 0 1" />
+    <limit lower="0" upper="1.57" effort="6" velocity="6" />
+  </joint>
+
+  <!-- Preserve the fingertip frame used by the full GX16 model. -->
+  <link name="link18" />
+  <joint name="joint18" type="fixed">
+    <origin xyz="0.05 0 -0.02" rpy="0 1.57 0" />
+    <parent link="link4" />
+    <child link="link18" />
+  </joint>
+</robot>
