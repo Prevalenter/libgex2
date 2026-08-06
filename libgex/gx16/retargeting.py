@@ -1,4 +1,4 @@
-"""EX16-to-GX16 vector retargeting powered by dex-retargeting."""
+"""EX16-to-GX16 retargeting powered by dex-retargeting."""
 
 from pathlib import Path
 
@@ -9,6 +9,8 @@ import yaml
 MODULE_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG_PATH = MODULE_DIR / "retargeting.yaml"
 JOINT_NAMES = [f"joint{i}" for i in range(1, 17)]
+DEXPILOT_ORIGIN_INDICES = np.asarray([2, 3, 4, 3, 4, 4, 0, 0, 0, 0], dtype=int)
+DEXPILOT_TASK_INDICES = np.asarray([1, 1, 1, 2, 2, 3, 1, 2, 3, 4], dtype=int)
 
 
 class EX16ToGX16Retargeting:
@@ -62,10 +64,19 @@ class EX16ToGX16Retargeting:
         )
 
         source_neutral = self._source_vectors(np.zeros(16))
+        retargeting_type = self.retargeting.optimizer.retargeting_type
+        if retargeting_type == "DEXPILOT":
+            origin_links = [raw_config["retargeting"]["wrist_link_name"]] * 4
+            task_links = raw_config["retargeting"]["finger_tip_link_names"]
+        elif retargeting_type == "VECTOR":
+            origin_links = raw_config["retargeting"]["target_origin_link_names"]
+            task_links = raw_config["retargeting"]["target_task_link_names"]
+        else:
+            raise ValueError(f"Unsupported EX16-to-GX16 retargeting type: {retargeting_type}")
         target_neutral = self._tip_vectors(
             target_urdf,
-            raw_config["retargeting"]["target_origin_link_names"],
-            raw_config["retargeting"]["target_task_link_names"],
+            origin_links,
+            task_links,
         )
         self.source_to_target_rotation = self._fit_rotation(
             source_neutral, target_neutral
@@ -101,6 +112,9 @@ class EX16ToGX16Retargeting:
         retarget_filter = getattr(self.retargeting, "filter", None)
         if retarget_filter is not None:
             retarget_filter.reset()
+        projected = getattr(self.retargeting.optimizer, "projected", None)
+        if projected is not None:
+            projected.fill(False)
 
     def _resolve_path(self, path):
         path = Path(path)
@@ -164,7 +178,15 @@ class EX16ToGX16Retargeting:
             )
         source_vectors = self._source_vectors(np.deg2rad(ex16_joint_degrees))
         aligned_vectors = source_vectors @ self.source_to_target_rotation
-        qpos = self.retargeting.retarget(aligned_vectors)
+        if self.retargeting.optimizer.retargeting_type == "DEXPILOT":
+            aligned_points = np.vstack([np.zeros((1, 3)), aligned_vectors])
+            reference_vectors = (
+                aligned_points[DEXPILOT_TASK_INDICES]
+                - aligned_points[DEXPILOT_ORIGIN_INDICES]
+            )
+        else:
+            reference_vectors = aligned_vectors
+        qpos = self.retargeting.retarget(reference_vectors)
         return np.asarray(qpos, dtype=np.float64)[self.output_indices]
 
     def reset(self):

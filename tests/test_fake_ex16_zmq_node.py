@@ -16,6 +16,7 @@ from PyQt5 import QtTest, QtWidgets  # noqa: E402
 from nodes.fake_ex16_zmq_node import (  # noqa: E402
     JOINT_COUNT,
     POSE_FORMAT,
+    REPO_ROOT,
     STATE_TOPIC,
     FakeEX16Window,
     list_pose_names,
@@ -24,6 +25,15 @@ from nodes.fake_ex16_zmq_node import (  # noqa: E402
     save_pose_file,
     validate_pose_name,
 )
+
+
+class ParseArgsTest(unittest.TestCase):
+    def test_default_pose_dir_is_geort_data(self):
+        args = parse_args([])
+        self.assertEqual(
+            args.pose_dir,
+            REPO_ROOT / "utils" / "GeoRT" / "data" / "pose" / "ex16",
+        )
 
 
 class PoseFileTest(unittest.TestCase):

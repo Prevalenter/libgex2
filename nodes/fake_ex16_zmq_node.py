@@ -28,7 +28,7 @@ except ImportError as exc:  # pragma: no cover - environment dependent
 REPO_ROOT = Path(__file__).resolve().parents[1]
 JOINT_COUNT = 16
 DEFAULT_STATE_ENDPOINT = "tcp://127.0.0.1:5567"
-DEFAULT_POSE_DIR = REPO_ROOT / "poses" / "ex16"
+DEFAULT_POSE_DIR = REPO_ROOT / "utils" / "GeoRT" / "data" / "pose" / "ex16"
 STATE_TOPIC = "ex16/state"
 POSE_FORMAT = "libgex.ex16_pose"
 POSE_VERSION = 1

@@ -391,7 +391,7 @@
     name="joint6"
     type="revolute">
     <origin
-      xyz="0.0175 0.03 -0.0175"
+      xyz="0.02 0.028 -0.0175"
       rpy="1.5708 0 1.5708" />
     <parent
       link="link5" />

@@ -1,0 +1,459 @@
+<?xml version='1.0' encoding='utf-8'?>
+<robot name="mano_right">
+  <!--Approximate rigid-link MANO model: 21 revolute anatomical DOFs; six virtual links represent two-axis joints. Units: meters.-->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/base_link.obj" />
+      </geometry>
+      <material name="mano_skin">
+        <color rgba="0.78 0.54 0.38 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/base_link.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="thumb_cmc_opposition_virtual_link" />
+  <joint name="thumb_cmc_opposition" type="revolute">
+    <parent link="base_link" />
+    <child link="thumb_cmc_opposition_virtual_link" />
+    <origin xyz="-0.0240896866 -0.0155223366 0.0258128485" rpy="0 0 0" />
+    <axis xyz="0.204657919 -0.959969766 -0.19124117" />
+    <limit lower="-0.785398163" upper="1.30899694" effort="1" velocity="10" />
+  </joint>
+  <link name="thumb_mcp">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/thumb_mcp.obj" />
+      </geometry>
+      <material name="mano_skin">
+        <color rgba="0.78 0.54 0.38 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/thumb_mcp.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="thumb_cmc_abduction" type="revolute">
+    <parent link="thumb_cmc_opposition_virtual_link" />
+    <child link="thumb_mcp" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <axis xyz="0.798923987 0.0486935512 0.599457589" />
+    <limit lower="-0.610865238" upper="1.22173048" effort="1" velocity="10" />
+  </joint>
+  <link name="thumb_mcp_flexion_virtual_link" />
+  <joint name="thumb_mcp_flexion" type="revolute">
+    <parent link="thumb_mcp" />
+    <child link="thumb_mcp_flexion_virtual_link" />
+    <origin xyz="-0.015143767 -0.0156783657 0.0217435546" rpy="0 0 0" />
+    <axis xyz="0.556177022 -0.226029605 0.799736043" />
+    <limit lower="-0.34906585" upper="1.3962634" effort="1" velocity="10" />
+  </joint>
+  <link name="thumb_pip">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/thumb_pip.obj" />
+      </geometry>
+      <material name="mano_skin">
+        <color rgba="0.78 0.54 0.38 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/thumb_pip.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="thumb_mcp_abduction" type="revolute">
+    <parent link="thumb_mcp_flexion_virtual_link" />
+    <child link="thumb_pip" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <axis xyz="0.267337323 -0.86157801 -0.431525305" />
+    <limit lower="-0.436332313" upper="0.8" effort="1" velocity="10" />
+  </joint>
+  <link name="thumb_dip">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/thumb_dip.obj" />
+      </geometry>
+      <material name="mano_skin">
+        <color rgba="0.78 0.54 0.38 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/thumb_dip.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="thumb_ip_flexion" type="revolute">
+    <parent link="thumb_pip" />
+    <child link="thumb_dip" />
+    <origin xyz="-0.0180882961 -0.0170529485 0.0107752159" rpy="0 0 0" />
+    <axis xyz="0.267337323 -0.86157801 -0.431525305" />
+    <limit lower="-0.34906585" upper="1.57079633" effort="1" velocity="10" />
+  </joint>
+  <link name="index_mcp_flexion_virtual_link" />
+  <joint name="index_mcp_flexion" type="revolute">
+    <parent link="base_link" />
+    <child link="index_mcp_flexion_virtual_link" />
+    <origin xyz="-0.0880972221 -0.00520035718 0.0206859922" rpy="0 0 0" />
+    <axis xyz="0.107649494 0.103488306 0.988788024" />
+    <limit lower="-0.34906585" upper="1.65806279" effort="1" velocity="10" />
+  </joint>
+  <link name="index_mcp">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/index_mcp.obj" />
+      </geometry>
+      <material name="mano_skin">
+        <color rgba="0.78 0.54 0.38 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/index_mcp.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="index_mcp_abduction" type="revolute">
+    <parent link="index_mcp_flexion_virtual_link" />
+    <child link="index_mcp" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <axis xyz="-0.0792078103 0.991986768 -0.0984295416" />
+    <limit lower="-0.436332313" upper="0.436332313" effort="1" velocity="10" />
+  </joint>
+  <link name="index_pip">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/index_pip.obj" />
+      </geometry>
+      <material name="mano_skin">
+        <color rgba="0.78 0.54 0.38 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/index_pip.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="index_pip_flexion" type="revolute">
+    <parent link="index_mcp" />
+    <child link="index_pip" />
+    <origin xyz="-0.0326789096 0.00400935393 0.00221706554" rpy="0 0 0" />
+    <axis xyz="-0.0239206248 0.0984951863 0.99484999" />
+    <limit lower="-0.174532925" upper="2.00712864" effort="1" velocity="10" />
+  </joint>
+  <link name="index_dip">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/index_dip.obj" />
+      </geometry>
+      <material name="mano_skin">
+        <color rgba="0.78 0.54 0.38 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/index_dip.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="index_dip_flexion" type="revolute">
+    <parent link="index_pip" />
+    <child link="index_dip" />
+    <origin xyz="-0.0221559107 -0.00129842223 -0.00011411123" rpy="0 0 0" />
+    <axis xyz="0.00783218547 0.0952493193 0.995422636" />
+    <limit lower="-0.174532925" upper="1.57079633" effort="1" velocity="10" />
+  </joint>
+  <link name="middle_mcp_flexion_virtual_link" />
+  <joint name="middle_mcp_flexion" type="revolute">
+    <parent link="base_link" />
+    <child link="middle_mcp_flexion_virtual_link" />
+    <origin xyz="-0.0946604162 -0.00147896446 -0.00335753895" rpy="0 0 0" />
+    <axis xyz="-0.159898754 0.0827766762 0.983656653" />
+    <limit lower="-0.34906585" upper="1.65806279" effort="1" velocity="10" />
+  </joint>
+  <link name="middle_mcp">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/middle_mcp.obj" />
+      </geometry>
+      <material name="mano_skin">
+        <color rgba="0.78 0.54 0.38 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/middle_mcp.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="middle_mcp_abduction" type="revolute">
+    <parent link="middle_mcp_flexion_virtual_link" />
+    <child link="middle_mcp" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <axis xyz="-0.0737124579 0.992562915 -0.0968779276" />
+    <limit lower="-0.34906585" upper="0.34906585" effort="1" velocity="10" />
+  </joint>
+  <link name="middle_pip">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/middle_pip.obj" />
+      </geometry>
+      <material name="mano_skin">
+        <color rgba="0.78 0.54 0.38 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/middle_pip.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="middle_pip_flexion" type="revolute">
+    <parent link="middle_mcp" />
+    <child link="middle_pip" />
+    <origin xyz="-0.0311826747 0.00186132966 -0.00559450965" rpy="0 0 0" />
+    <axis xyz="-0.175263375 0.0838481096 0.980944567" />
+    <limit lower="-0.174532925" upper="2.00712864" effort="1" velocity="10" />
+  </joint>
+  <link name="middle_dip">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/middle_dip.obj" />
+      </geometry>
+      <material name="mano_skin">
+        <color rgba="0.78 0.54 0.38 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/middle_dip.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="middle_dip_flexion" type="revolute">
+    <parent link="middle_pip" />
+    <child link="middle_dip" />
+    <origin xyz="-0.022904655 -0.00125210453 -0.00394451432" rpy="0 0 0" />
+    <axis xyz="-0.138321493 0.0832350069 0.986883528" />
+    <limit lower="-0.174532925" upper="1.57079633" effort="1" velocity="10" />
+  </joint>
+  <link name="ring_mcp_flexion_virtual_link" />
+  <joint name="ring_mcp_flexion" type="revolute">
+    <parent link="base_link" />
+    <child link="ring_mcp_flexion_virtual_link" />
+    <origin xyz="-0.0817355365 -0.00395742105 -0.0266731875" rpy="0 0 0" />
+    <axis xyz="-0.175828123 0.083169364 0.980901283" />
+    <limit lower="-0.34906585" upper="1.65806279" effort="1" velocity="10" />
+  </joint>
+  <link name="ring_mcp">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/ring_mcp.obj" />
+      </geometry>
+      <material name="mano_skin">
+        <color rgba="0.78 0.54 0.38 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/ring_mcp.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="ring_mcp_abduction" type="revolute">
+    <parent link="ring_mcp_flexion_virtual_link" />
+    <child link="ring_mcp" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <axis xyz="0.0791415884 -0.992071971 0.0976207659" />
+    <limit lower="-0.436332313" upper="0.436332313" effort="1" velocity="10" />
+  </joint>
+  <link name="ring_pip">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/ring_pip.obj" />
+      </geometry>
+      <material name="mano_skin">
+        <color rgba="0.78 0.54 0.38 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/ring_pip.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="ring_pip_flexion" type="revolute">
+    <parent link="ring_mcp" />
+    <child link="ring_pip" />
+    <origin xyz="-0.0283142738 0.00206700759 -0.00509853661" rpy="0 0 0" />
+    <axis xyz="-0.314779875 0.0689495478 0.946657061" />
+    <limit lower="-0.174532925" upper="2.00712864" effort="1" velocity="10" />
+  </joint>
+  <link name="ring_dip">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/ring_dip.obj" />
+      </geometry>
+      <material name="mano_skin">
+        <color rgba="0.78 0.54 0.38 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/ring_dip.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="ring_dip_flexion" type="revolute">
+    <parent link="ring_pip" />
+    <child link="ring_dip" />
+    <origin xyz="-0.0235205181 -0.00168811181 -0.00763381645" rpy="0 0 0" />
+    <axis xyz="-0.263960758 0.0646647379 0.962363336" />
+    <limit lower="-0.174532925" upper="1.57079633" effort="1" velocity="10" />
+  </joint>
+  <link name="pinky_mcp_flexion_virtual_link" />
+  <joint name="pinky_mcp_flexion" type="revolute">
+    <parent link="base_link" />
+    <child link="pinky_mcp_flexion_virtual_link" />
+    <origin xyz="-0.0687869564 -0.00994032901 -0.0432093414" rpy="0 0 0" />
+    <axis xyz="-0.608246702 0.0317900893 0.793111177" />
+    <limit lower="-0.34906585" upper="1.74532925" effort="1" velocity="10" />
+  </joint>
+  <link name="pinky_mcp">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/pinky_mcp.obj" />
+      </geometry>
+      <material name="mano_skin">
+        <color rgba="0.78 0.54 0.38 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/pinky_mcp.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="pinky_mcp_abduction" type="revolute">
+    <parent link="pinky_mcp_flexion_virtual_link" />
+    <child link="pinky_mcp" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <axis xyz="0.0707046098 -0.993349764 0.0908686075" />
+    <limit lower="-0.523598776" upper="0.523598776" effort="1" velocity="10" />
+  </joint>
+  <link name="pinky_pip">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/pinky_pip.obj" />
+      </geometry>
+      <material name="mano_skin">
+        <color rgba="0.78 0.54 0.38 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/pinky_pip.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="pinky_pip_flexion" type="revolute">
+    <parent link="pinky_mcp" />
+    <child link="pinky_pip" />
+    <origin xyz="-0.0170144048 6.18244521e-05 -0.0124987848" rpy="0 0 0" />
+    <axis xyz="-0.530676331 0.0410549975 0.846579659" />
+    <limit lower="-0.174532925" upper="2.0943951" effort="1" velocity="10" />
+  </joint>
+  <link name="pinky_dip">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/pinky_dip.obj" />
+      </geometry>
+      <material name="mano_skin">
+        <color rgba="0.78 0.54 0.38 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="mano_right_meshes/pinky_dip.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="pinky_dip_flexion" type="revolute">
+    <parent link="pinky_pip" />
+    <child link="pinky_dip" />
+    <origin xyz="-0.0158669017 -0.000691154506 -0.0103318915" rpy="0 0 0" />
+    <axis xyz="-0.443702021 0.0536870141 0.894564822" />
+    <limit lower="-0.174532925" upper="1.65806279" effort="1" velocity="10" />
+  </joint>
+  <link name="thumb_tip" />
+  <joint name="thumb_tip_fixed" type="fixed">
+    <parent link="thumb_dip" />
+    <child link="thumb_tip" />
+    <origin xyz="-0.0206638109 -0.0202782974 0.020397462" rpy="0 0 0" />
+  </joint>
+  <link name="index_tip" />
+  <joint name="index_tip_fixed" type="fixed">
+    <parent link="index_dip" />
+    <child link="index_tip" />
+    <origin xyz="-0.0254820436 0.00118407072 -0.000501507893" rpy="0 0 0" />
+  </joint>
+  <link name="middle_tip" />
+  <joint name="middle_tip_fixed" type="fixed">
+    <parent link="middle_dip" />
+    <child link="middle_tip" />
+    <origin xyz="-0.0256918482 0.0038468088 -0.00413642917" rpy="0 0 0" />
+  </joint>
+  <link name="ring_tip" />
+  <joint name="ring_tip_fixed" type="fixed">
+    <parent link="ring_dip" />
+    <child link="ring_tip" />
+    <origin xyz="-0.024435699 0.00385906151 -0.00734077021" rpy="0 0 0" />
+  </joint>
+  <link name="pinky_tip" />
+  <joint name="pinky_tip_fixed" type="fixed">
+    <parent link="pinky_dip" />
+    <child link="pinky_tip" />
+    <origin xyz="-0.0170934796 0.00154867582 -0.0103156678" rpy="0 0 0" />
+  </joint>
+</robot>

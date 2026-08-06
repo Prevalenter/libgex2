@@ -39,8 +39,8 @@ python nodes/ex16_zmq_node.py --port /dev/ttyACM0
 
 The publisher opens a Qt status window showing the latest 16 measured joint
 angles. Enter a pose name and click **Save Current Pose** to store it in
-`poses/ex16/`; when the name is empty, a timestamped name is generated. Use
-`--pose-dir PATH` to choose a different pose library.
+`utils/GeoRT/data/pose/ex16/`; when the name is empty, a timestamped name is generated.
+Use `--pose-dir PATH` to choose a different pose library.
 
 Then start the viewer in another terminal:
 
@@ -60,14 +60,31 @@ python nodes/fake_ex16_zmq_node.py
 ```
 
 Its 16 sliders publish the same `ex16/state` messages as the real node. The
-pose controls save and load versioned JSON files under `poses/ex16/` by default;
-use `--pose-dir PATH` to select another pose library. The angle range defaults
-to -180 through 180 degrees and can be changed with `--angle-min` and
+pose controls save and load versioned JSON files under `utils/GeoRT/data/pose/ex16/` by
+default; use `--pose-dir PATH` to select another pose library. The angle range
+defaults to -180 through 180 degrees and can be changed with `--angle-min` and
 `--angle-max`.
 
 The real and fake EX16 publishers both bind to `tcp://127.0.0.1:5567` by
 default, so do not run them simultaneously on that endpoint. Use
 `--state-endpoint` when separate endpoints are needed.
+
+### Manual EX16 → GX16 pose calibration
+
+To select a saved EX16 pose, move GX16 fingertip targets with bounded IK, and
+save the resulting GX16 pose, run:
+
+```bash
+conda activate geort
+python utils/GeoRT/calibration/set_robot_hand/set_robot_hand.py
+```
+
+Open <http://127.0.0.1:8080>. EX16 source poses are read from
+`utils/GeoRT/data/pose/ex16/`; authored GX16 poses are saved under
+`utils/GeoRT/data/pose/gx16/`. The tool displays both hands side by side and
+provides base transform gizmos, camera-layout persistence, and GX16 joint
+sliders for final fine-tuning. More details are in
+`utils/GeoRT/calibration/set_robot_hand/README.md`.
 
 To view EX16 and the retargeted GX16 together, run:
 
